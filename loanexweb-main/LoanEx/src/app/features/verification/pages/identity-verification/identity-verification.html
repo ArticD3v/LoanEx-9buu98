@@ -1,0 +1,252 @@
+<div class="lx-idv">
+  <p-toast position="top-center" />
+
+  <header class="lx-idv__hero">
+    <p class="lx-idv__eyebrow">LoanEx KYC</p>
+    <h1>Identity Verification</h1>
+    <p class="lx-idv__subtitle">Complete your KYC to continue.</p>
+  </header>
+
+  @if (bootstrapping()) {
+    <p-card styleClass="lx-idv__card">
+      <div class="lx-idv__skeleton" aria-live="polite" aria-busy="true">
+        <p-skeleton width="40%" height="1.25rem" styleClass="mb-3" />
+        <p-skeleton width="100%" height="3rem" styleClass="mb-3" />
+        <p-skeleton width="100%" height="12rem" />
+      </div>
+    </p-card>
+  } @else {
+    <p-card styleClass="lx-idv__card">
+      
+      <!-- Section 1: Aadhaar via DigiLocker -->
+      <div class="lx-idv__panel mb-5">
+        <div class="lx-idv__panel-head">
+          <h2>Aadhaar Verification</h2>
+          <p>Verify your identity securely with Government DigiLocker.</p>
+        </div>
+
+        @if (aadhaarVerified()) {
+          <div
+            class="lx-idv__success"
+            role="status"
+          >
+            <span class="lx-idv__success-icon" aria-hidden="true">
+              <i class="pi pi-check"></i>
+            </span>
+            <div>
+              <strong>Aadhaar Verified via DigiLocker</strong>
+              <p>{{ maskedAadhaar() || 'XXXXXXXXXXXX' }}</p>
+            </div>
+          </div>
+
+          @if (digilockerKycData(); as data) {
+            <div class="lx-idv__kyc-details-card mt-3">
+              @if (data.profile_image) {
+                <img class="lx-idv__kyc-photo" [src]="'data:image/jpeg;base64,' + data.profile_image" alt="Aadhaar Photo" />
+              }
+              <div class="lx-idv__kyc-info">
+                <div class="lx-idv__kyc-row">
+                  <span class="lx-idv__kyc-label">Name</span>
+                  <span class="lx-idv__kyc-val">{{ data.name }}</span>
+                </div>
+                <div class="lx-idv__kyc-row">
+                  <span class="lx-idv__kyc-label">DOB</span>
+                  <span class="lx-idv__kyc-val">{{ data.dob }}</span>
+                </div>
+                <div class="lx-idv__kyc-row">
+                  <span class="lx-idv__kyc-label">Gender</span>
+                  <span class="lx-idv__kyc-val">{{ data.gender === 'M' ? 'Male' : data.gender === 'F' ? 'Female' : data.gender }}</span>
+                </div>
+              </div>
+            </div>
+          }
+        } @else {
+          <div class="lx-idv__digilocker-box mt-3">
+            <i class="pi pi-shield lx-idv__digilocker-icon"></i>
+            <h3>Official DigiLocker Digital KYC</h3>
+            <p>Click below to verify your identity securely with Government DigiLocker. Paperless & instant!</p>
+            
+            <p-button
+              icon="pi pi-link"
+              label="Verify via DigiLocker"
+              styleClass="lx-idv__dl-btn mt-3"
+              [loading]="verifyingAadhaar()"
+              (onClick)="startDigilocker()"
+            />
+          </div>
+
+          @if (digilockerStep() === 'redirect') {
+            <div class="lx-idv__dl-redirect-alert mt-4">
+              <i class="pi pi-spin pi-spinner"></i>
+              <div class="lx-idv__dl-redirect-text">
+                <p><strong>Awaiting DigiLocker Authorization...</strong></p>
+                <p>Please complete the process in the popup window.</p>
+                <button class="lx-idv__link-btn mt-2" (click)="continueDigilockerRedirect()">
+                  Re-open popup
+                </button>
+              </div>
+            </div>
+          }
+        }
+      </div>
+
+      <!-- Section 2: PAN & Credit Score (Experian) -->
+      @if (aadhaarVerified()) {
+        <hr class="mb-5" style="border: 0; border-top: 1px solid var(--surface-border);" />
+
+        <div class="lx-idv__panel">
+          <div class="lx-idv__panel-head">
+            <h2>PAN & Credit Score (Experian)</h2>
+            <p>Review the fields to fetch your Experian credit report.</p>
+          </div>
+
+          @if (panVerified()) {
+            <div
+              class="lx-idv__success"
+              [class.is-pulse]="panSuccessPulse()"
+              role="status"
+            >
+              <span class="lx-idv__success-icon" aria-hidden="true">
+                <i class="pi pi-check"></i>
+              </span>
+              <div>
+                <strong>PAN Card Verified & Credit Report Fetched</strong>
+                <p>Name: {{ experianForm.value.first_name }} {{ experianForm.value.last_name }}</p>
+                <p>PAN: {{ maskedPan() || 'XXXXXXXXXX' }}</p>
+              </div>
+            </div>
+
+            @if (creditScore() !== null) {
+              <div class="lx-idv__kyc-details-card mt-3">
+                <div class="lx-idv__kyc-info">
+                  <div class="lx-idv__kyc-row">
+                    <span class="lx-idv__kyc-label">Experian Credit Score</span>
+                    <span class="lx-idv__kyc-val" style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color);">
+                      {{ creditScore() }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            }
+          } @else {
+            <form class="lx-idv__form mt-4" [formGroup]="experianForm" (ngSubmit)="verifyPanAndCredit()">
+              
+              <div class="grid formgrid p-fluid">
+                <div class="col-12 mb-4">
+                  <h4 class="mb-1">Personal Details</h4>
+                  <p class="text-color-secondary text-sm m-0">Please verify your details before fetching the credit report.</p>
+                </div>
+
+                <div class="field col-12 md:col-6 mb-4">
+                  <div class="flex flex-column gap-2">
+                    <label for="mobile_no" class="font-semibold text-700">Mobile No <span class="text-red-500">*</span></label>
+                    <input id="mobile_no" type="text" pInputText class="lx-idv__input w-full" formControlName="mobile_no" />
+                  </div>
+                </div>
+                
+                <div class="field col-12 md:col-6 mb-4">
+                  <div class="flex flex-column gap-2">
+                    <label for="pan" class="font-semibold text-700">PAN <span class="text-red-500">*</span></label>
+                    <input
+                      id="pan"
+                      type="text"
+                      pInputText
+                      class="lx-idv__input w-full"
+                      formControlName="pan"
+                      (input)="onPanInput($event)"
+                      style="text-transform: uppercase"
+                    />
+                  </div>
+                  @if (experianForm.controls.pan.invalid && experianForm.controls.pan.touched) {
+                    <small class="p-error block mt-1">Enter a valid 10-character PAN number.</small>
+                  }
+                </div>
+
+                <div class="field col-12 md:col-6 mb-4">
+                  <div class="flex flex-column gap-2">
+                    <label for="first_name" class="font-semibold text-700">First Name <span class="text-red-500">*</span></label>
+                    <input id="first_name" type="text" pInputText class="lx-idv__input w-full" formControlName="first_name" />
+                  </div>
+                </div>
+
+                <div class="field col-12 md:col-6 mb-4">
+                  <div class="flex flex-column gap-2">
+                    <label for="last_name" class="font-semibold text-700">Last Name <span class="text-red-500">*</span></label>
+                    <input id="last_name" type="text" pInputText class="lx-idv__input w-full" formControlName="last_name" />
+                  </div>
+                </div>
+
+                <div class="field col-12 mb-4">
+                  <div class="flex flex-column gap-2">
+                    <label for="dob" class="font-semibold text-700">Date of Birth (YYYY-MM-DD) <span class="text-red-500">*</span></label>
+                    <input id="dob" type="text" pInputText class="lx-idv__input w-full" formControlName="dob" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="lx-idv__actions mt-2">
+                <p-button
+                  type="submit"
+                  label="Verify PAN & Fetch Credit Score"
+                  [loading]="verifyingPan()"
+                  [disabled]="verifyingPan() || experianForm.invalid"
+                  icon="pi pi-check-circle"
+                  styleClass="lx-idv__btn w-full"
+                ></p-button>
+              </div>
+            </form>
+          }
+        </div>
+      }
+
+      <!-- Section 3: Face Match Verification -->
+      @if (panVerified()) {
+        <hr class="mb-5" style="border: 0; border-top: 1px solid var(--surface-border);" />
+
+        <div class="lx-idv__panel">
+          <div class="lx-idv__panel-head">
+            <h2>Face Verification</h2>
+            <p>Please capture a selfie to match against your Aadhaar photo.</p>
+          </div>
+
+          @if (faceVerified()) {
+            <div class="lx-idv__success" role="status">
+              <span class="lx-idv__success-icon" aria-hidden="true">
+                <i class="pi pi-check"></i>
+              </span>
+              <div>
+                <strong>Face Matched Successfully</strong>
+              </div>
+            </div>
+          } @else {
+            <div class="lx-idv__face-capture mt-3" style="display: flex; flex-direction: column; align-items: center;">
+              <video #videoElement autoplay playsinline style="width: 100%; max-width: 320px; border-radius: 8px; background: #000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);" [style.display]="cameraActive() ? 'block' : 'none'"></video>
+              <canvas #canvasElement style="display: none;"></canvas>
+              
+              @if (capturedImage()) {
+                <div class="mt-3">
+                  <img [src]="capturedImage()" alt="Captured Selfie" style="width: 100%; max-width: 320px; border-radius: 8px; border: 2px solid var(--primary-color);" />
+                </div>
+              }
+
+              <div class="mt-4 flex gap-3 justify-content-center">
+                @if (!cameraActive() && !capturedImage()) {
+                  <p-button label="Start Camera" icon="pi pi-camera" (onClick)="startCamera()"></p-button>
+                }
+                @if (cameraActive()) {
+                  <p-button label="Capture Photo" icon="pi pi-camera" (onClick)="capturePhoto()" severity="success"></p-button>
+                  <p-button label="Cancel" icon="pi pi-times" (onClick)="stopCamera()" severity="secondary" [text]="true"></p-button>
+                }
+                @if (capturedImage() && !cameraActive()) {
+                  <p-button label="Retake Photo" icon="pi pi-refresh" (onClick)="retakePhoto()" severity="secondary" [disabled]="verifyingFace()"></p-button>
+                  <p-button label="Verify Face" icon="pi pi-check" (onClick)="verifyFace()" [loading]="verifyingFace()"></p-button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+    </p-card>
+  }
+</div>

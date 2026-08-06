@@ -1,12 +1,12 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts, Spacing, Radius, Shadow } from '../../constants/theme';
 import { APP_CONFIG } from '../../constants/config';
-import { getAllOrders } from '../../services/orderService';
+import { getOrderById } from '../../services/orderService';
 import { Order, OrderStatus } from '../../types';
 
 // ─── Timeline Config ──────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ function MapPlaceholder({ status }: { status: OrderStatus }) {
           ['43%','3%','17%','22%'],['43%','27%','28%','22%'],
           ['75%','3%','17%','22%'],['75%','63%','16%','22%'],
           ['43%','66%','31%','54%'],
-        ] as [string,string,string,string][]).map(([t,l,w,h], i) => (
+        ] as [any,any,any,any][]).map(([t,l,w,h], i) => (
           <View key={i} style={[mp.block, { top: t, left: l, width: w, height: h }]} />
         ))}
 
@@ -198,8 +198,23 @@ export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
   const insets  = useSafeAreaInsets();
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const order = useMemo(() => getAllOrders().find(o => o.id === id), [id]);
+  useEffect(() => {
+    if (id) {
+      getOrderById(id).then(o => {
+        setOrder(o || null);
+        setLoading(false);
+      });
+    }
+  }, [id]);
+
+  if (loading) return (
+    <View style={{ flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center' }}>
+      <ActivityIndicator size="large" color={Colors.primary} />
+    </View>
+  );
 
   if (!order) {
     return (
@@ -341,32 +356,37 @@ export default function OrderDetailScreen() {
               <View style={st.emiStatusRow}>
                 <View style={[st.emiDot, {
                   backgroundColor:
-                    order.emiDetails.emiStatus === 'approved' ? Colors.success :
+                    ['active','accepted','downpayment_paid','completed'].includes(order.emiDetails.emiStatus) ? Colors.success :
                     order.emiDetails.emiStatus === 'rejected' ? Colors.error :
-                    order.emiDetails.emiStatus === 'completed' ? Colors.success : Colors.warning,
+                    Colors.warning,
                 }]} />
                 <Text style={st.emiStatusTxt}>
-                  {order.emiDetails.emiStatus === 'approved'  ? 'EMI Active' :
+                  {order.emiDetails.emiStatus === 'active'  ? 'EMI Active' :
+                   order.emiDetails.emiStatus === 'accepted'  ? 'Proposal Accepted' :
+                   order.emiDetails.emiStatus === 'downpayment_paid'  ? 'Downpayment Paid' :
+                   order.emiDetails.emiStatus === 'proposal_sent'  ? 'Proposal from Admin' :
                    order.emiDetails.emiStatus === 'rejected'  ? 'EMI Rejected' :
                    order.emiDetails.emiStatus === 'completed' ? 'Fully Paid' :
                    'Awaiting Approval'}
                 </Text>
               </View>
-              {/* Progress bar */}
-              <View style={st.progressBar}>
-                <View style={[st.progressFill, {
-                  width: `${Math.round((order.emiDetails.paidInstallments / order.emiDetails.months) * 100)}%`
-                }]} />
-              </View>
-              <Text style={st.progressTxt}>
-                {order.emiDetails.paidInstallments}/{order.emiDetails.months} installments paid
-              </Text>
-              {/* Grid */}
+              {(order.emiDetails.emiStatus === 'active' || order.emiDetails.emiStatus === 'completed') && (
+                <>
+                  <View style={st.progressBar}>
+                    <View style={[st.progressFill, {
+                      width: `${Math.round((order.emiDetails.paidInstallments / order.emiDetails.tenure) * 100)}%`
+                    }]} />
+                  </View>
+                  <Text style={st.progressTxt}>
+                    {order.emiDetails.paidInstallments}/{order.emiDetails.tenure} installments paid
+                  </Text>
+                </>
+              )}
               <View style={st.emiGrid}>
                 {[
-                  { label: 'Monthly EMI',  val: `${APP_CONFIG.currency}${order.emiDetails.monthlyAmount.toLocaleString()}`, hi: false },
-                  { label: 'Interest Rate', val: `${order.emiDetails.interestRate}% p.a.`, hi: false },
-                  { label: 'Total Amount', val: `${APP_CONFIG.currency}${order.emiDetails.totalAmount.toLocaleString()}`, hi: false },
+                  { label: 'Monthly EMI',  val: `${APP_CONFIG.currency}${order.emiDetails.regularEMIAmount.toLocaleString()}`, hi: false },
+                  { label: 'Down Payment', val: `${APP_CONFIG.currency}${order.emiDetails.downPaymentAmount.toLocaleString()}`, hi: false },
+                  { label: 'Tenure', val: `${order.emiDetails.tenure} months`, hi: false },
                   ...(order.emiDetails.nextDueDate ? [{
                     label: 'Next Due',
                     val: new Date(order.emiDetails.nextDueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
@@ -379,6 +399,12 @@ export default function OrderDetailScreen() {
                   </View>
                 ))}
               </View>
+              {order.emiDetails.adminProposal && (
+                <View style={{ marginTop: Spacing.md, backgroundColor: Colors.primaryLight, padding: Spacing.md, borderRadius: Radius.md }}>
+                  <Text style={{ fontSize: Fonts.xs, fontWeight: Fonts.bold, color: Colors.primary, marginBottom: 4 }}>Admin Proposal Notes</Text>
+                  <Text style={{ fontSize: Fonts.sm, color: Colors.textSecondary }}>{order.emiDetails.adminProposal.notes || 'No notes'}</Text>
+                </View>
+              )}
             </View>
           </View>
         )}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, KeyboardAvoidingView, Platform, ScrollView, Pressable } from 'react-native';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { Colors, Fonts, Spacing, Radius, Shadow } from '../../constants/theme';
 
 export default function LoginScreen() {
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -21,7 +22,7 @@ export default function LoginScreen() {
     setError(''); setLoading(true);
     try {
       await login(phone);
-      router.push({ pathname: '/auth/otp', params: { phone } });
+      router.replace({ pathname: '/auth/otp', params: { phone, returnTo } });
     } catch { setError('Failed to send OTP. Try again.'); }
     finally { setLoading(false); }
   }
@@ -33,7 +34,7 @@ export default function LoginScreen() {
         <Image source={{ uri: 'https://images.unsplash.com/photo-1483181957632-8bda974cbc91?w=800&q=80' }} style={styles.heroImg} contentFit="cover" transition={300} />
         <View style={styles.heroOverlay} />
         <View style={[styles.heroContent, { paddingTop: insets.top + Spacing.xl }]}>
-          <View style={styles.logoBadge}><Text style={styles.logoText}>ShopEMI</Text></View>
+          <View style={styles.logoBadge}><Text style={styles.logoText}>LoanEx</Text></View>
           <Text style={styles.heroTitle}>Shop Smart,{'\n'}Pay Smarter</Text>
           <Text style={styles.heroSub}>Premium products · Flexible EMI plans</Text>
         </View>
@@ -55,10 +56,8 @@ export default function LoginScreen() {
         {!!error && <Text style={styles.errorText}>{error}</Text>}
         <Button title="Send OTP" onPress={handleSend} loading={loading} disabled={phone.length < 10} fullWidth size="lg" style={styles.sendBtn} />
         <View style={styles.hintBox}>
-          <Text style={styles.hintTitle}>🔑 Demo OTP Codes</Text>
-          <Text style={styles.hintSub}>Enter any phone, then use:</Text>
-          <Text style={styles.hintCode}>{"0000  →  Admin Dashboard"}</Text>
-          <Text style={styles.hintCode}>{"1111  →  Customer App"}</Text>
+          <Text style={styles.hintTitle}>🔑 Dev Login</Text>
+          <Text style={styles.hintSub}>Any phone + OTP: 1111 → Customer</Text>
         </View>
         <Text style={styles.terms}>
           By continuing you agree to our{' '}

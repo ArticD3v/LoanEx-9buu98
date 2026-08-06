@@ -1,0 +1,56 @@
+<div class="lx-home">
+  <!-- Interactive Hero Carousel & Trust Bar -->
+  <app-hero />
+
+  <!-- Top Category Bar -->
+  <div id="categories">
+    <app-categories />
+  </div>
+
+  <!-- Section 1: Hot EMI Deals -->
+  <app-popular-products
+    title="🔥 Popular on EMI"
+    [limit]="6"
+    viewAllLink="/products"
+  />
+
+  <!-- Section 2: Smartphones & Mobiles -->
+  <app-popular-products
+    title="📱 Smartphones & Mobiles"
+    category="Smartphones"
+    [limit]="6"
+    viewAllLink="/products?category=Smartphones"
+  />
+
+  <!-- Section 3: Laptops & Electronics -->
+  <app-popular-products
+    title="💻 Laptops & Computing"
+    category="Laptops"
+    [limit]="6"
+    viewAllLink="/products?category=Laptops"
+  />
+
+  <!-- Section 4: Home Appliances -->
+  <app-popular-products
+    title="📺 Smart TVs & Appliances"
+    category="Smart TV"
+    [limit]="6"
+    viewAllLink="/products?category=Smart%20TV"
+  />
+
+  <!-- Snapmint 3-Step EMI Flow -->
+  <div id="how-it-works">
+    <app-how-it-works />
+  </div>
+
+  <!-- Promotional Offer Banner -->
+  <div id="offers">
+    <app-offer-banner />
+  </div>
+
+  <!-- Trust Badges & Guarantee -->
+  <app-why-choose-us />
+
+  <!-- Interactive FAQs -->
+  <app-faq />
+</div>

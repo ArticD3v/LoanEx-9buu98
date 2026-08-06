@@ -1,16 +1,17 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Pressable, TextInput,
-  ScrollView, Modal, Animated, Platform,
+  ScrollView, Modal, Platform, ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts, Spacing, Radius, Shadow } from '../constants/theme';
-import { CATEGORIES, APP_CONFIG } from '../constants/config';
+import { APP_CONFIG } from '../constants/config';
 import { ProductCard } from '../components/feature/ProductCard';
 import { filterAndSortProducts, getAllBrands, getPriceRange, SortOption, FilterOptions } from '../services/productService';
-import { Product } from '../types';
+import { getCategories } from '../services/categoryService';
+import { Product, Category } from '../types';
 
 const SORT_OPTIONS: { key: SortOption; label: string; icon: string }[] = [
   { key: 'relevance', label: 'Relevance', icon: 'auto-awesome' },
@@ -51,11 +52,26 @@ export default function SearchScreen() {
   const [emiOnly, setEmiOnly] = useState(false);
   const [minRating, setMinRating] = useState<number | null>(null);
 
-  const allBrands = useMemo(() => getAllBrands(), []);
-  const priceRange = useMemo(() => getPriceRange(), []);
+  const [allBrands, setAllBrands] = useState<string[]>([]);
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 999999 });
+  const [results, setResults] = useState<Product[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   const inputRef = useRef<TextInput>(null);
   useEffect(() => { setTimeout(() => inputRef.current?.focus(), 100); }, []);
+
+  useEffect(() => {
+    Promise.all([
+      getAllBrands(),
+      getPriceRange(),
+      getCategories(),
+    ]).then(([brands, pr, cats]) => {
+      setAllBrands(brands);
+      setPriceRange(pr);
+      setCategories(cats);
+    });
+  }, []);
 
   const activeFilterCount = useMemo(() => {
     let c = 0;
@@ -81,7 +97,17 @@ export default function SearchScreen() {
     };
   }, [query, selectedCats, selectedBrands, pricePreset, minPrice, maxPrice, emiOnly, minRating, activeSort]);
 
-  const results = useMemo(() => filterAndSortProducts(filterOpts), [filterOpts]);
+  useEffect(() => {
+    let cancelled = false;
+    setSearching(true);
+    filterAndSortProducts(filterOpts).then(r => {
+      if (!cancelled) {
+        setResults(r);
+        setSearching(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [filterOpts]);
 
   const activeSortLabel = SORT_OPTIONS.find(s => s.key === activeSort)?.label ?? 'Sort';
 
@@ -182,7 +208,7 @@ export default function SearchScreen() {
       {activeFilterCount > 0 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillsScroll} contentContainerStyle={styles.pillsContainer}>
           {selectedCats.map(cid => {
-            const cat = CATEGORIES.find(c => c.id === cid);
+            const cat = categories.find(c => c.id === cid);
             return cat ? (
               <View key={cid} style={styles.pill}>
                 <Text style={styles.pillTxt}>{cat.name}</Text>
@@ -238,7 +264,9 @@ export default function SearchScreen() {
       )}
 
       {/* Results list */}
-      {results.length === 0 ? (
+      {searching ? (
+        <ActivityIndicator color={Colors.primary} style={{ marginTop: 40 }} />
+      ) : results.length === 0 ? (
         <View style={styles.empty}>
           <MaterialIcons name="search-off" size={72} color={Colors.border} />
           <Text style={styles.emptyTitle}>No products found</Text>
@@ -279,7 +307,7 @@ export default function SearchScreen() {
               <View style={styles.filterSection}>
                 <Text style={styles.filterLabel}>Category</Text>
                 <View style={styles.chipRow}>
-                  {CATEGORIES.map(cat => (
+                  {categories.map(cat => (
                     <Pressable
                       key={cat.id}
                       style={[styles.chip, selectedCats.includes(cat.id) && styles.chipSelected]}

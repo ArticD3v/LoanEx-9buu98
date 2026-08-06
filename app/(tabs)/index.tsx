@@ -1,41 +1,83 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, Dimensions, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors, Fonts, Spacing, Radius, Shadow } from '../../constants/theme';
-import { CATEGORIES } from '../../constants/config';
 import { ProductCard } from '../../components/feature/ProductCard';
 import { useAuth } from '../../hooks/useAuth';
-import { getFeaturedProducts, getDeals } from '../../services/productService';
+import { getCategories } from '../../services/categoryService';
+import { getFeaturedProducts, getDeals, getTrendingProducts, getRecommendedProducts, getNewArrivals } from '../../services/productService';
+import { getBanners, Banner as BannerType } from '../../services/bannerService';
+import { getUnreadCount } from '../../services/notificationService';
+import { Category, Product } from '../../types';
 
 const W = Dimensions.get('window').width;
-const BANNERS = [
-  { id: '1', title: 'Biggest Electronics Sale', sub: 'Up to 40% off premium gadgets', badge: '0% EMI Available', uri: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=800&q=80' },
-  { id: '2', title: 'Fashion Forward', sub: 'New arrivals, fresh styles this season', badge: 'Flat 30% off', uri: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80' },
+
+const FALLBACK_BANNERS: BannerType[] = [
+  { id: 'fb-1', title: 'Biggest Electronics Sale', subtitle: 'Up to 40% off premium gadgets', badgeText: '0% EMI Available', imageUrl: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=800&q=80', link: '', sortOrder: 1, status: 'active', createdAt: '' },
+  { id: 'fb-2', title: 'Fashion Forward', subtitle: 'New arrivals, fresh styles this season', badgeText: 'Flat 30% off', imageUrl: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80', link: '', sortOrder: 2, status: 'active', createdAt: '' },
 ];
 
 export default function HomeScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [featured, setFeatured] = useState<Product[]>([]);
+  const [deals, setDeals] = useState<Product[]>([]);
+  const [trending, setTrending] = useState<Product[]>([]);
+  const [recommended, setRecommended] = useState<Product[]>([]);
+  const [newArrivals, setNewArrivals] = useState<Product[]>([]);
+  const [banners, setBanners] = useState<BannerType[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Fetch unread notification count when the home tab is focused
+  useFocusEffect(useCallback(() => {
+    if (user) {
+      getUnreadCount(user.id).then(setUnreadCount);
+    }
+  }, [user]));
+
+  useEffect(() => {
+    Promise.all([
+      getCategories().catch(() => [] as Category[]),
+      getFeaturedProducts().catch(() => [] as Product[]),
+      getDeals().catch(() => [] as Product[]),
+      getBanners().catch(() => [] as BannerType[]),
+      getTrendingProducts().catch(() => [] as Product[]),
+      getRecommendedProducts().catch(() => [] as Product[]),
+      getNewArrivals().catch(() => [] as Product[]),
+    ]).then(([cats, feat, d, b, trend, rec, newArr]) => {
+      setCategories(cats);
+      setFeatured(feat);
+      setDeals(d.slice(0, 3));
+      setBanners(b.length ? b : FALLBACK_BANNERS);
+      setTrending(trend);
+      setRecommended(rec);
+      setNewArrivals(newArr);
+    }).finally(() => setLoading(false));
+  }, []);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0] || 'User'} 👋</Text>
+          <Text style={styles.greeting}>Hello, {user?.name?.split(' ')[0] || 'User'}</Text>
           <Text style={styles.subGreet}>What are you shopping for today?</Text>
         </View>
-        <Pressable style={styles.notifBtn}>
+        <Pressable style={styles.notifBtn} onPress={() => router.push('/notifications' as any)}>
           <MaterialIcons name="notifications-none" size={24} color={Colors.textPrimary} />
-          <View style={styles.notifDot} />
+          {unreadCount > 0 && (
+            <View style={styles.notifBadge}>
+              <Text style={styles.notifBadgeTxt}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+            </View>
+          )}
         </Pressable>
       </View>
 
-      {/* Search bar — tappable, navigates to /search */}
       <Pressable style={styles.searchBar} onPress={() => router.push('/search')}>
         <MaterialIcons name="search" size={20} color={Colors.textTertiary} />
         <Text style={styles.searchPlaceholder}>Search phones, TVs, fashion...</Text>
@@ -43,38 +85,37 @@ export default function HomeScreen() {
       </Pressable>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Banner carousel */}
         <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={{ height: 195 }}>
-          {BANNERS.map(b => (
+          {(banners.length ? banners : []).map(b => (
             <View key={b.id} style={[styles.banner, { width: W }]}>
-              <Image source={{ uri: b.uri }} style={styles.bannerImg} contentFit="cover" transition={300} />
+              <Image
+                source={{ uri: b.imageUrl || 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=800&q=80' }}
+                style={styles.bannerImg} contentFit="cover" transition={300} />
               <View style={styles.bannerOverlay} />
               <View style={styles.bannerContent}>
-                <View style={styles.bannerBadge}><Text style={styles.bannerBadgeTxt}>{b.badge}</Text></View>
+                {b.badgeText ? <View style={styles.bannerBadge}><Text style={styles.bannerBadgeTxt}>{b.badgeText}</Text></View> : null}
                 <Text style={styles.bannerTitle}>{b.title}</Text>
-                <Text style={styles.bannerSub}>{b.sub}</Text>
+                {b.subtitle ? <Text style={styles.bannerSub}>{b.subtitle}</Text> : null}
               </View>
             </View>
           ))}
         </ScrollView>
 
-        {/* EMI strip */}
         <View style={styles.emiStrip}>
           <MaterialIcons name="account-balance" size={15} color={Colors.success} />
           <Text style={styles.emiStripTxt}>Easy EMI from 0% interest · No paperwork required</Text>
           <MaterialIcons name="chevron-right" size={15} color={Colors.success} />
         </View>
 
-        {/* Categories */}
         <View style={styles.section}>
           <View style={styles.sectionHdr}>
             <Text style={styles.sectionTitle}>Categories</Text>
             <Pressable onPress={() => router.push('/(tabs)/categories')}><Text style={styles.seeAll}>See all</Text></Pressable>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: Spacing.lg, gap: Spacing.lg }}>
-            {CATEGORIES.map(cat => (
-              <Pressable key={cat.id} style={styles.catChip} onPress={() => router.push(`/search?category=${cat.id}`)}>
-                <View style={[styles.catIcon, { backgroundColor: cat.bg }]}>
+            {(loading ? [] : categories).map(cat => (
+              <Pressable key={cat.id} style={styles.catChip} onPress={() => router.push({ pathname: '/search', params: { category: cat.name } })}>
+                <View style={[styles.catIcon, { backgroundColor: cat.bgColor }]}>
                   <MaterialIcons name={cat.icon as any} size={22} color={cat.color} />
                 </View>
                 <Text style={styles.catLabel}>{cat.name}</Text>
@@ -83,26 +124,74 @@ export default function HomeScreen() {
           </ScrollView>
         </View>
 
-        {/* EMI Deals */}
         <View style={styles.section}>
           <View style={styles.sectionHdr}>
-            <Text style={styles.sectionTitle}>📱 EMI Deals</Text>
+            <Text style={styles.sectionTitle}>EMI Deals</Text>
             <Pressable onPress={() => router.push('/search?emiOnly=true')}>
               <View style={styles.emiBadgeSmall}><Text style={styles.emiBadgeTxt}>0% interest</Text></View>
             </Pressable>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: Spacing.md, gap: Spacing.sm }}>
-            {getFeaturedProducts().map(p => <ProductCard key={p.id} product={p} />)}
-          </ScrollView>
+          {loading ? (
+            <ActivityIndicator color={Colors.primary} style={{ padding: Spacing.xl }} />
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: Spacing.md, gap: Spacing.sm }}>
+              {featured.map(p => <ProductCard key={p.id} product={p} />)}
+            </ScrollView>
+          )}
         </View>
 
-        {/* Deal of the Day */}
         <View style={styles.section}>
           <View style={styles.sectionHdr}>
-            <Text style={styles.sectionTitle}>🔥 Deal of the Day</Text>
+            <Text style={styles.sectionTitle}>Deal of the Day</Text>
             <Pressable onPress={() => router.push('/search?sort=discount')}><Text style={styles.seeAll}>View all</Text></Pressable>
           </View>
-          {getDeals().slice(0, 3).map(p => <ProductCard key={p.id} product={p} horizontal />)}
+          {loading ? (
+            <ActivityIndicator color={Colors.primary} style={{ padding: Spacing.xl }} />
+          ) : (
+            deals.map(p => <ProductCard key={p.id} product={p} horizontal />)
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHdr}>
+            <Text style={styles.sectionTitle}>Trending Products</Text>
+            <Pressable onPress={() => router.push('/search?sort=rating')}><Text style={styles.seeAll}>See all</Text></Pressable>
+          </View>
+          {loading ? (
+            <ActivityIndicator color={Colors.primary} style={{ padding: Spacing.xl }} />
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: Spacing.md, gap: Spacing.sm }}>
+              {trending.map(p => <ProductCard key={p.id} product={p} />)}
+            </ScrollView>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHdr}>
+            <Text style={styles.sectionTitle}>Recommended For You</Text>
+            <Pressable onPress={() => router.push('/search')}><Text style={styles.seeAll}>See all</Text></Pressable>
+          </View>
+          {loading ? (
+            <ActivityIndicator color={Colors.primary} style={{ padding: Spacing.xl }} />
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: Spacing.md, gap: Spacing.sm }}>
+              {recommended.map(p => <ProductCard key={p.id} product={p} />)}
+            </ScrollView>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <View style={styles.sectionHdr}>
+            <Text style={styles.sectionTitle}>New Arrivals</Text>
+            <Pressable onPress={() => router.push('/search?sort=newest')}><Text style={styles.seeAll}>See all</Text></Pressable>
+          </View>
+          {loading ? (
+            <ActivityIndicator color={Colors.primary} style={{ padding: Spacing.xl }} />
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: Spacing.md, gap: Spacing.sm }}>
+              {newArrivals.map(p => <ProductCard key={p.id} product={p} />)}
+            </ScrollView>
+          )}
         </View>
 
         <View style={{ height: Spacing.huge }} />
@@ -117,7 +206,8 @@ const styles = StyleSheet.create({
   greeting: { fontSize: Fonts.xl, fontWeight: Fonts.bold, color: Colors.textPrimary },
   subGreet: { fontSize: Fonts.sm, color: Colors.textSecondary, marginTop: 2 },
   notifBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
-  notifDot: { position: 'absolute', top: 8, right: 8, width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.error, borderWidth: 1.5, borderColor: Colors.background },
+  notifBadge: { position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: Colors.error, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3, borderWidth: 1.5, borderColor: Colors.background },
+  notifBadgeTxt: { color: '#fff', fontSize: 9, fontWeight: Fonts.bold },
   searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: Radius.full, marginHorizontal: Spacing.lg, marginBottom: Spacing.md, paddingHorizontal: Spacing.lg, paddingVertical: Spacing.md, borderWidth: 1, borderColor: Colors.border, gap: Spacing.sm, ...Shadow.sm },
   searchPlaceholder: { flex: 1, fontSize: Fonts.md, color: Colors.textTertiary },
   banner: { height: 195, position: 'relative' },

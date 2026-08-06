@@ -11,11 +11,11 @@ import { APP_CONFIG } from '../../constants/config';
 import { CartItem } from '../../types';
 
 export default function CartScreen() {
-  const { items, removeFromCart, updateQuantity, subtotal, totalItems } = useCart();
+  const { cartItems, removeItem, updateQuantity, totalPrice, totalItems } = useCart();
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  if (items.length === 0) {
+  if (cartItems.length === 0) {
     return (
       <View style={[styles.empty, { paddingTop: insets.top }]}>
         <MaterialIcons name="shopping-cart" size={80} color={Colors.border} />
@@ -33,7 +33,7 @@ export default function CartScreen() {
         <Text style={styles.itemCount}>{totalItems} items</Text>
       </View>
       <FlatList
-        data={items}
+        data={cartItems}
         keyExtractor={i => i.product.id}
         contentContainerStyle={{ paddingBottom: 220 }}
         ItemSeparatorComponent={() => <View style={{ height: Spacing.sm }} />}
@@ -47,7 +47,7 @@ export default function CartScreen() {
               {item.product.emiAvailable && <Text style={styles.emiNote}>EMI from {APP_CONFIG.currency}{Math.ceil(item.product.price / 12).toLocaleString()}/mo</Text>}
             </View>
             <View style={styles.actions}>
-              <Pressable onPress={() => removeFromCart(item.product.id)} style={styles.removeBtn}>
+              <Pressable onPress={() => removeItem(item.product.id)} style={styles.removeBtn}>
                 <MaterialIcons name="delete-outline" size={20} color={Colors.error} />
               </Pressable>
               <View style={styles.qtyControl}>
@@ -64,11 +64,11 @@ export default function CartScreen() {
         )}
       />
       <View style={[styles.summary, { paddingBottom: insets.bottom + Spacing.lg }]}>
-        <View style={styles.summaryRow}><Text style={styles.sumLabel}>Subtotal ({totalItems} items)</Text><Text style={styles.sumVal}>{APP_CONFIG.currency}{subtotal.toLocaleString()}</Text></View>
+        <View style={styles.summaryRow}><Text style={styles.sumLabel}>Subtotal ({totalItems} items)</Text><Text style={styles.sumVal}>{APP_CONFIG.currency}{totalPrice.toLocaleString()}</Text></View>
         <View style={styles.summaryRow}><Text style={styles.sumLabel}>Delivery</Text><Text style={[styles.sumVal, { color: Colors.success }]}>FREE</Text></View>
         <View style={[styles.summaryRow, styles.totalRow]}>
           <Text style={styles.totalLabel}>Total</Text>
-          <Text style={styles.totalVal}>{APP_CONFIG.currency}{subtotal.toLocaleString()}</Text>
+          <Text style={styles.totalVal}>{APP_CONFIG.currency}{totalPrice.toLocaleString()}</Text>
         </View>
         <Button title="Proceed to Checkout" onPress={() => router.push('/checkout')} fullWidth size="lg" style={{ borderRadius: Radius.lg }} />
       </View>

@@ -1,28 +1,63 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, Pressable, TextInput, Alert, Modal, ActivityIndicator } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../hooks/useAuth';
+import { useKYC } from '../../hooks/useKYC';
+import { updateProfile } from '../../services/authService';
 import { Colors, Fonts, Spacing, Radius, Shadow } from '../../constants/theme';
 
 const MENU = [
   { icon: 'receipt-long', label: 'My Orders', route: '/orders' },
-  { icon: 'account-balance', label: 'My EMIs', route: null },
-  { icon: 'location-on', label: 'Delivery Addresses', route: null },
-  { icon: 'payment', label: 'Payment Methods', route: null },
-  { icon: 'notifications', label: 'Notifications', route: null },
-  { icon: 'help-outline', label: 'Help & Support', route: null },
+  { icon: 'account-balance', label: 'My EMIs', route: '/(tabs)/emis' },
+  { icon: 'favorite', label: 'My Wishlist', route: '/wishlist' },
+  { icon: 'location-on', label: 'Delivery Addresses', route: '/addresses' },
+  { icon: 'payment', label: 'Payment Methods', route: '/payment-methods' },
+  { icon: 'notifications', label: 'Notifications', route: '/notifications' },
+  { icon: 'help-outline', label: 'Help & Support', route: '/help' },
 ];
 
 export default function ProfileScreen() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
+  const { kyc, kycLoading, isKYCComplete } = useKYC();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  useFocusEffect(useCallback(() => { refreshUser(); }, []));
+  const [kycModal, setKycModal] = useState(false);
+
+  const maskAadhar = (aadhar: string) => {
+    if (!aadhar || aadhar.length < 4) return 'XXXX XXXX XXXX';
+    return `XXXX XXXX ${aadhar.slice(-4)}`;
+  };
+
+  const maskPan = (pan: string) => {
+    if (!pan || pan.length < 4) return 'XXXXXXXXXX';
+    return `${pan.slice(0, 2)}******${pan.slice(-2)}`;
+  };
 
   async function handleLogout() {
     await logout();
     router.replace('/auth/login');
+  }
+
+  if (!user) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, justifyContent: 'center', alignItems: 'center', padding: Spacing.xl }]}>
+        <MaterialIcons name="account-circle" size={80} color={Colors.border} />
+        <Text style={{ fontSize: Fonts.xl, fontWeight: Fonts.bold, color: Colors.textPrimary, marginTop: Spacing.lg }}>Guest Profile</Text>
+        <Text style={{ fontSize: Fonts.md, color: Colors.textSecondary, textAlign: 'center', marginTop: Spacing.sm, marginBottom: Spacing.xl }}>
+          Please login to view your orders, EMIs, and manage your account settings.
+        </Text>
+        <Pressable 
+          style={{ backgroundColor: Colors.primary, paddingVertical: 14, paddingHorizontal: 32, borderRadius: Radius.md }}
+          onPress={() => router.push('/auth/login')}
+        >
+          <Text style={{ color: '#fff', fontSize: Fonts.md, fontWeight: Fonts.bold }}>Login Now</Text>
+        </Pressable>
+      </View>
+    );
   }
 
   return (
@@ -36,8 +71,54 @@ export default function ProfileScreen() {
             <Text style={styles.phone}>+91 {user?.phone}</Text>
             {user?.email ? <Text style={styles.email}>{user.email}</Text> : null}
           </View>
-          <Pressable style={styles.editBtn}><MaterialIcons name="edit" size={18} color={Colors.primary} /></Pressable>
+          {kyc && isKYCComplete ? (
+            <Pressable style={styles.editBtn} onPress={() => setKycModal(true)}>
+              <MaterialIcons name="visibility" size={18} color={Colors.primary} />
+            </Pressable>
+          ) : null}
         </View>
+
+        {/* KYC Status Card */}
+        <Pressable
+          style={styles.kycCard}
+          onPress={() => {
+            if (!isKYCComplete) {
+              router.push('/kyc-verification' as any);
+            }
+          }}
+        >
+          {kycLoading ? (
+            <ActivityIndicator color={Colors.primary} />
+          ) : isKYCComplete && kyc ? (
+            <>
+              <View style={styles.kycTop}>
+                <View style={styles.kycBadgeComplete}>
+                  <MaterialIcons name="verified" size={16} color={Colors.success} />
+                  <Text style={styles.kycBadgeTxt}>KYC Verified</Text>
+                </View>
+              </View>
+              <View style={styles.kycDetails}>
+                <View style={styles.kycItem}>
+                  <MaterialIcons name="trending-up" size={14} color={Colors.success} />
+                  <Text style={styles.kycItemTxt}>CIBIL Score</Text>
+                  <Text style={[styles.kycItemVal, { fontWeight: Fonts.bold, color: Colors.primary, fontSize: Fonts.md }]}>{kyc.cibilScore}</Text>
+                </View>
+              </View>
+            </>
+          ) : (
+            <View style={styles.kycIncomplete}>
+              <View style={styles.kycIconWrap}>
+                <MaterialIcons name="verified-user" size={24} color={Colors.warning} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.kycIncompleteTitle}>KYC Not Completed</Text>
+                <Text style={styles.kycIncompleteSub}>Verify your identity to start shopping</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={18} color={Colors.textTertiary} />
+            </View>
+          )}
+        </Pressable>
+
         <View style={styles.menuCard}>
           {MENU.map((item, idx) => (
             <React.Fragment key={item.label}>
@@ -57,9 +138,54 @@ export default function ProfileScreen() {
           <MaterialIcons name="logout" size={20} color={Colors.error} />
           <Text style={styles.logoutTxt}>Log Out</Text>
         </Pressable>
-        <Text style={styles.version}>ShopEMI v1.0.0 · Made with love in India</Text>
+        <Text style={styles.version}>LoanEx v1.0.0 · Made with love in India</Text>
         <View style={{ height: Spacing.huge }} />
       </ScrollView>
+
+        {/* KYC Info Modal */}
+        <Modal visible={kycModal} transparent animationType="slide" onRequestClose={() => setKycModal(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg }}>
+                <Text style={{ fontSize: Fonts.lg, fontWeight: Fonts.bold, color: Colors.textPrimary }}>KYC Information</Text>
+                <Pressable onPress={() => setKycModal(false)}><MaterialIcons name="close" size={24} color={Colors.textTertiary} /></Pressable>
+              </View>
+              
+              {kyc ? (
+                <View style={{ gap: Spacing.md }}>
+                  <View>
+                    <Text style={{ fontSize: Fonts.sm, color: Colors.textTertiary }}>Full Name</Text>
+                    <Text style={{ fontSize: Fonts.md, color: Colors.textPrimary, fontWeight: Fonts.medium, marginTop: 4 }}>{kyc.fullName || user?.name}</Text>
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: Fonts.sm, color: Colors.textTertiary }}>Aadhaar Number</Text>
+                    <Text style={{ fontSize: Fonts.md, color: Colors.textPrimary, fontWeight: Fonts.medium, marginTop: 4 }}>{maskAadhar(kyc.aadharNumber)}</Text>
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: Fonts.sm, color: Colors.textTertiary }}>PAN Card</Text>
+                    <Text style={{ fontSize: Fonts.md, color: Colors.textPrimary, fontWeight: Fonts.medium, marginTop: 4 }}>{maskPan(kyc.panNumber)}</Text>
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: Fonts.sm, color: Colors.textTertiary }}>CIBIL Score</Text>
+                    <Text style={{ fontSize: Fonts.md, color: Colors.success, fontWeight: Fonts.bold, marginTop: 4 }}>{kyc.cibilScore}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <View>
+                      <Text style={{ fontSize: Fonts.sm, color: Colors.textTertiary }}>Date of Birth</Text>
+                      <Text style={{ fontSize: Fonts.md, color: Colors.textPrimary, fontWeight: Fonts.medium, marginTop: 4 }}>{kyc.dob || 'N/A'}</Text>
+                    </View>
+                    <View style={{ paddingRight: Spacing.xl }}>
+                      <Text style={{ fontSize: Fonts.sm, color: Colors.textTertiary }}>Gender</Text>
+                      <Text style={{ fontSize: Fonts.md, color: Colors.textPrimary, fontWeight: Fonts.medium, marginTop: 4 }}>{kyc.gender || 'N/A'}</Text>
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                <Text style={{ color: Colors.textSecondary, textAlign: 'center' }}>KYC information not available.</Text>
+              )}
+            </View>
+          </View>
+        </Modal>
     </View>
   );
 }
@@ -84,4 +210,27 @@ const styles = StyleSheet.create({
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: Spacing.sm, backgroundColor: Colors.errorLight, marginHorizontal: Spacing.lg, borderRadius: Radius.xl, padding: Spacing.lg, marginBottom: Spacing.lg },
   logoutTxt: { fontSize: Fonts.md, fontWeight: Fonts.semiBold, color: Colors.error },
   version: { textAlign: 'center', fontSize: Fonts.xs, color: Colors.textTertiary, marginBottom: Spacing.lg },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center', padding: Spacing.xxl },
+  modalCard: { backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.xxl, width: '100%', maxWidth: 340, ...Shadow.lg },
+  modalTitle: { fontSize: Fonts.xl, fontWeight: Fonts.bold, color: Colors.textPrimary, marginBottom: Spacing.lg },
+  modalInput: { backgroundColor: Colors.surfaceAlt, borderWidth: 1.5, borderColor: Colors.border, borderRadius: Radius.md, padding: Spacing.md, fontSize: Fonts.md, color: Colors.textPrimary, marginBottom: Spacing.lg },
+  modalBtns: { flexDirection: 'row', gap: Spacing.md, justifyContent: 'flex-end' },
+  modalCancel: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, borderRadius: Radius.md },
+  modalCancelTxt: { fontSize: Fonts.md, color: Colors.textSecondary, fontWeight: Fonts.medium },
+  modalSave: { paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, backgroundColor: Colors.primary, borderRadius: Radius.md },
+  modalSaveTxt: { fontSize: Fonts.md, color: '#fff', fontWeight: Fonts.bold },
+
+  // KYC Card
+  kycCard: { marginHorizontal: Spacing.lg, marginBottom: Spacing.lg, backgroundColor: Colors.surface, borderRadius: Radius.xl, padding: Spacing.lg, ...Shadow.sm },
+  kycTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  kycBadgeComplete: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.successLight, paddingHorizontal: Spacing.md, paddingVertical: 5, borderRadius: Radius.full },
+  kycBadgeTxt: { fontSize: Fonts.xs, fontWeight: Fonts.semiBold, color: Colors.success },
+  kycDetails: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm },
+  kycItem: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.surfaceAlt, paddingHorizontal: Spacing.md, paddingVertical: 6, borderRadius: Radius.full, minWidth: '45%' },
+  kycItemTxt: { fontSize: Fonts.xs, color: Colors.textSecondary, flex: 1 },
+  kycItemVal: { fontSize: Fonts.xs, color: Colors.textSecondary },
+  kycIncomplete: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  kycIconWrap: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.warningLight, alignItems: 'center', justifyContent: 'center' },
+  kycIncompleteTitle: { fontSize: Fonts.sm, fontWeight: Fonts.semiBold, color: Colors.textPrimary },
+  kycIncompleteSub: { fontSize: Fonts.xs, color: Colors.textTertiary, marginTop: 2 },
 });

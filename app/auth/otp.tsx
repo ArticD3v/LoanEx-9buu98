@@ -10,7 +10,7 @@ import { Colors, Fonts, Spacing, Radius } from '../../constants/theme';
 const OTP_LEN = 4;
 
 export default function OTPScreen() {
-  const { phone } = useLocalSearchParams<{ phone: string }>();
+  const { phone, returnTo } = useLocalSearchParams<{ phone: string, returnTo?: string }>();
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,7 +31,8 @@ export default function OTPScreen() {
     try {
       const res = await verifyOTP(phone, otp);
       if (res.user) {
-        if (res.user.role === 'admin') router.replace('/admin');
+        if (returnTo) router.replace(returnTo as any);
+        else if (res.user.role === 'admin') router.replace('/admin');
         else router.replace('/(tabs)');
       } else { setError(res.error || 'Invalid OTP'); setOtp(''); }
     } catch { setError('Verification failed. Try again.'); }
@@ -74,9 +75,9 @@ export default function OTPScreen() {
           )}
         </View>
         <View style={styles.hintBox}>
-          <Text style={styles.hintTitle}>Test OTP Codes</Text>
-          <Text style={styles.hintCode}>{"0000  →  Admin Access"}</Text>
-          <Text style={styles.hintCode}>{"1111  →  Customer Access"}</Text>
+          <Text style={styles.hintTitle}>Dev: No real SMS</Text>
+          <Text style={styles.hintCode}>{"0000  →  Admin"}</Text>
+          <Text style={styles.hintCode}>{"1111  →  Customer"}</Text>
         </View>
       </View>
     </KeyboardAvoidingView>

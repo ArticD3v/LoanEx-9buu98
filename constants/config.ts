@@ -1,4 +1,35 @@
-export const APP_CONFIG = { name: 'ShopEMI', currency: '₹' };
+import { Platform } from 'react-native';
+
+export const APP_CONFIG = { name: 'LoanEx', currency: '₹' };
+
+// Default server URL for development - override via EXPO_PUBLIC_SERVER_URL
+const defaultServerUrl = __DEV__
+  ? Platform.select({
+      android: 'http://10.0.2.2:4000',   // Android emulator → host machine
+      ios: 'http://localhost:4000',         // iOS simulator → host machine
+      default: 'http://localhost:4000',
+    }) || 'http://localhost:4000'
+  : 'http://localhost:4000';               // Production: replace with your deployed URL
+
+// Backend server (Express) that proxies Razorpay + IDSPay KYC
+// Set EXPO_PUBLIC_SERVER_URL in .env to override (e.g. http://192.168.1.100:4000 for physical devices)
+let resolvedServerUrl = process.env.EXPO_PUBLIC_SERVER_URL || process.env.EXPO_PUBLIC_RAZORPAY_SERVER_URL || defaultServerUrl;
+if (Platform.OS === 'android' && resolvedServerUrl.includes('localhost')) {
+  resolvedServerUrl = resolvedServerUrl.replace('localhost', '10.0.2.2');
+}
+
+export const SERVER_URL = resolvedServerUrl;
+
+export const RAZORPAY_CONFIG = {
+  keyId: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_TK9j8iOxo6qUvs',
+  serverUrl: SERVER_URL,
+};
+
+export const KYC_CONFIG = {
+  // When true, uses the real IDSPay DigiLocker API for Aadhaar verification.
+  // When false (or API fails), falls back to demo format-check verification.
+  useRealAadhar: true,
+};
 
 export const EMI_RATES = [
   { months: 3, annualRate: 12 },
@@ -16,7 +47,7 @@ export const CATEGORIES = [
   { id: '6', name: 'Beauty', icon: 'face' as const, color: '#EF4444', bg: '#FEF2F2' },
 ];
 
-export const MOCK_OTP = { admin: '0000', customer: '1111' };
+export const ADMIN_PHONES = ['9876543210', '9999999999'];
 
 export function calculateEMI(principal: number, annualRate: number, months: number) {
   const r = annualRate / 12 / 100;

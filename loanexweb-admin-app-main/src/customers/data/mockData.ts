@@ -1,0 +1,68 @@
+import { Customer } from '../../types/customer';
+
+export const MOCK_CUSTOMERS: Customer[] = [
+  {
+    id: 'CUS-10001',
+    name: 'Rajesh Kumar',
+    mobile: '+91 98765 43210',
+    city: 'Mumbai',
+    emiStatus: 'running',
+    status: 'active',
+  },
+  {
+    id: 'CUS-10002',
+    name: 'Priya Sharma',
+    mobile: '+91 91234 56789',
+    city: 'Delhi',
+    emiStatus: 'pending',
+    status: 'active',
+  },
+  {
+    id: 'CUS-10003',
+    name: 'Amit Patel',
+    mobile: '+91 99887 76655',
+    city: 'Ahmedabad',
+    emiStatus: 'completed',
+    status: 'active',
+  },
+  {
+    id: 'CUS-10004',
+    name: 'Sneha Reddy',
+    mobile: '+91 87654 32109',
+    city: 'Hyderabad',
+    emiStatus: 'running',
+    status: 'inactive',
+  },
+  {
+    id: 'CUS-10005',
+    name: 'Vikram Singh',
+    mobile: '+91 90123 45678',
+    city: 'Jaipur',
+    emiStatus: 'rejected',
+    status: 'inactive',
+  },
+  {
+    id: 'CUS-10006',
+    name: 'Ananya Iyer',
+    mobile: '+91 93456 78901',
+    city: 'Chennai',
+    emiStatus: 'running',
+    status: 'active',
+  },
+  {
+    id: 'CUS-10007',
+    name: 'Mohammed Farhan',
+    mobile: '+91 88990 11223',
+    city: 'Bangalore',
+    emiStatus: 'pending',
+    status: 'active',
+  },
+  {
+    id: 'CUS-10008',
+    name: 'Kavita Desai',
+    mobile: '+91 97777 88899',
+    city: 'Pune',
+    emiStatus: 'completed',
+    status: 'inactive',
+  },
+];

@@ -1,0 +1,70 @@
+{
+  "info": {
+    "name": "LoanEx Bank Verification",
+    "description": "Sample requests for LoanEx bank account verification APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000/api/v1" },
+    { "key": "accessToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Bank Status",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/verification/bank/status"
+      },
+      "response": [
+        {
+          "name": "Success",
+          "status": "OK",
+          "code": 200,
+          "body": "{\n  \"success\": true,\n  \"message\": \"Bank verification status fetched\",\n  \"data\": {\n    \"bankVerified\": false,\n    \"panVerified\": true,\n    \"status\": \"PENDING\"\n  }\n}"
+        },
+        {
+          "name": "Unauthorized",
+          "status": "Unauthorized",
+          "code": 401,
+          "body": "{\n  \"success\": false,\n  \"message\": \"Access token is required\",\n  \"code\": \"UNAUTHORIZED\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "Verify Bank Account",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"accountHolderName\": \"Rahul Sharma\",\n  \"bankName\": \"State Bank of India\",\n  \"accountNumber\": \"123456789012\",\n  \"confirmAccountNumber\": \"123456789012\",\n  \"ifscCode\": \"SBIN0001234\",\n  \"accountType\": \"SAVINGS\"\n}"
+        },
+        "url": "{{baseUrl}}/verification/bank/verify"
+      },
+      "response": [
+        {
+          "name": "Success",
+          "status": "OK",
+          "code": 200,
+          "body": "{\n  \"success\": true,\n  \"message\": \"Bank Account Verified Successfully\",\n  \"status\": \"VERIFIED\",\n  \"data\": {\n    \"bankVerified\": true,\n    \"accountNumberMasked\": \"XXXXXXXX9012\",\n    \"verificationStatus\": \"COMPLETED\",\n    \"nextStep\": \"VERIFICATION_SUMMARY\"\n  }\n}"
+        },
+        {
+          "name": "Account mismatch",
+          "status": "Bad Request",
+          "code": 400,
+          "body": "{\n  \"success\": false,\n  \"message\": \"Validation failed\",\n  \"code\": \"BAD_REQUEST\"\n}"
+        },
+        {
+          "name": "Already verified",
+          "status": "Conflict",
+          "code": 409,
+          "body": "{\n  \"success\": false,\n  \"message\": \"Bank account is already verified\",\n  \"code\": \"CONFLICT\"\n}"
+        }
+      ]
+    }
+  ]
+}

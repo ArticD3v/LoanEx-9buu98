@@ -109,25 +109,31 @@ function OrderCard({ order }: { order: Order }) {
       {order.paymentMethod === 'emi' && order.emiDetails && (
         <View style={[styles.emiBanner, {
           backgroundColor:
-            order.emiDetails.emiStatus === 'approved' ? Colors.successLight :
+            ['active', 'accepted', 'downpayment_paid', 'completed'].includes(order.emiDetails.emiStatus) ? Colors.successLight :
             order.emiDetails.emiStatus === 'rejected' ? Colors.errorLight : Colors.warningLight,
         }]}>
           <MaterialIcons
-            name={order.emiDetails.emiStatus === 'approved' ? 'check-circle' : order.emiDetails.emiStatus === 'rejected' ? 'cancel' : 'hourglass-empty'}
+            name={['active', 'accepted', 'downpayment_paid', 'completed'].includes(order.emiDetails.emiStatus) ? 'check-circle' : order.emiDetails.emiStatus === 'rejected' ? 'cancel' : 'hourglass-empty'}
             size={13}
-            color={order.emiDetails.emiStatus === 'approved' ? Colors.success : order.emiDetails.emiStatus === 'rejected' ? Colors.error : '#B45309'}
+            color={['active', 'accepted', 'downpayment_paid', 'completed'].includes(order.emiDetails.emiStatus) ? Colors.success : order.emiDetails.emiStatus === 'rejected' ? Colors.error : '#B45309'}
           />
           <Text style={[styles.emiTxt, {
             color:
-              order.emiDetails.emiStatus === 'approved' ? Colors.success :
+              ['active', 'accepted', 'downpayment_paid', 'completed'].includes(order.emiDetails.emiStatus) ? Colors.success :
               order.emiDetails.emiStatus === 'rejected' ? Colors.error : '#B45309',
           }]}>
-            {order.emiDetails.emiStatus === 'approved'
-              ? `EMI Active · ${order.emiDetails.paidInstallments}/${order.emiDetails.months} paid`
+            {order.emiDetails.emiStatus === 'active'
+              ? `EMI Active · ${order.emiDetails.paidInstallments}/${order.emiDetails.tenure} paid`
+              : order.emiDetails.emiStatus === 'accepted'
+              ? 'Proposal Accepted — Pay Downpayment'
+              : order.emiDetails.emiStatus === 'downpayment_paid'
+              ? 'Downpayment Paid — Order Confirmed'
               : order.emiDetails.emiStatus === 'rejected'
               ? 'EMI Rejected — contact support'
               : order.emiDetails.emiStatus === 'completed'
               ? 'EMI Fully Paid'
+              : order.emiDetails.emiStatus === 'proposal_sent'
+              ? 'Proposal from Admin — Review in EMIs tab'
               : 'Awaiting EMI Approval'}
           </Text>
         </View>
@@ -141,7 +147,7 @@ export default function OrdersScreen() {
   const { userOrders } = useOrders();
   const router        = useRouter();
   const insets        = useSafeAreaInsets();
-  const orders        = userOrders(user?.id || '');
+  const orders        = userOrders;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
